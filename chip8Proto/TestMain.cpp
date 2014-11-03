@@ -4,11 +4,14 @@
 #include <thread>
 
 const char* romName= "BRIX";
+
 // Display size
 #define SCREEN_WIDTH 64
 #define SCREEN_HEIGHT 32
+
 VCPU* myChip8;
 int modifier = 10;
+
 // Window size
 int display_width = SCREEN_WIDTH * modifier;
 int display_height = SCREEN_HEIGHT * modifier;
@@ -16,6 +19,7 @@ void display();
 void reshape_window(GLsizei w, GLsizei h);
 void keyboardUp(unsigned char key, int x, int y);
 void keyboardDown(unsigned char key, int x, int y);
+
 // Use new drawing method
 #define DRAWWITHTEXTURE
 typedef unsigned __int8 u8;
@@ -25,10 +29,12 @@ const int delayMil = 3;
 const int timerDelay = 16;
 bool draw=false;
 bool cycleCap = true;
+
 void delay(int value){
 	draw=true;
 	glutTimerFunc(delayMil,delay,0);
 }
+
 void pingTimers(int value){
 	bool sound = myChip8->updateCounters();
 	if(sound){
@@ -37,6 +43,7 @@ void pingTimers(int value){
 	}
 	glutTimerFunc(timerDelay,pingTimers,0);
 }
+
 int main(int argc, char **argv){
 	ROM myrom(romName);
 	myChip8 = new VCPU(16,myrom);	
@@ -93,8 +100,10 @@ void updateTexture(VCPU* c8){
 		glTexCoord2d(0.0, 1.0); 	glVertex2d(0.0,			  display_height);
 	glEnd();
 }
+
 // Old gfx code
-void drawPixel(int x, int y){
+void drawPixel(int x, int y)
+{
 	glBegin(GL_QUADS);
 		glVertex3f((x * modifier) + 0.0f,     (y * modifier) + 0.0f,	 0.0f);
 		glVertex3f((x * modifier) + 0.0f,     (y * modifier) + modifier, 0.0f);
@@ -102,7 +111,9 @@ void drawPixel(int x, int y){
 		glVertex3f((x * modifier) + modifier, (y * modifier) + 0.0f,	 0.0f);
 	glEnd();
 }
-void updateQuads(VCPU* c8){
+
+void updateQuads(VCPU* c8)
+{
 // Draw
 	for(int y = 0; y < 32; ++y)		
 		for(int x = 0; x < 64; ++x){

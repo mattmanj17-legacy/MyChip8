@@ -32,34 +32,34 @@ unsigned char chip8_fontset[80] =
 };
 class VCPU{
 private:
-	friend class Debugger;
-
-	unsigned char V[16]; // 16 8-bit registers
+	unsigned char V[16];
 	
-	unsigned char* Memory; // Memory of VCPU
+	unsigned char* Memory;
 	
-	int memSize; // Size of the memory array
+	int memSize;
 	
-	CallStack* cstack; // The stack to allow returning from subroutines
+	CallStack* cstack;
 	
-	bool drawFlag; // Flag to be set when the screen needs to be re-drawn
+	bool drawFlag;
 	
-	bool screen[64][32]; // A 2D array to hold values in the screen
+	bool screen[64][32];
 	
-	int delayTimer; // Timer, it's use isn't totally clear
+	int delayTimer;
 	
-	int soundTimer; // Timer for sound, when it switches to 0 a sound is supposed to play
+	int soundTimer;
 	
-	unsigned short indexRegister; // A register to hold an index in the memory array
+	unsigned short indexRegister;
 	
-	unsigned short programCounter; // The program counter, controls where we pull opcodes from in memory
+	unsigned short programCounter;
 
 	// Empties the key states register.
-	void clearKeyStates(){
+	void clearKeyStates()
+	{
 		/*for(int i=0;i<16;i++){
 			keyStates[i]=false;
 		}*/
-		__asm{
+		__asm
+		{
 			mov ebx, this
 			mov ecx, 16
 		loop1:
@@ -71,21 +71,15 @@ private:
 
 	// Loads starting character set into memory, some ROMs use this 
 	// standardized character set, so this is required at initialization.
-	void loadCharacterSet(){
-		for(int i=0; i<memSize;i++){
+	void loadCharacterSet()
+	{
+		for(int i=0; i<memSize;i++)
+		{
 			Memory[i]=0x00;
 		}
 
-	/*	__asm{
-			mov ebx, this
-			mov ecx, [ebx]VCPU.memSize
-		loop1:
-			mov [ebx]VCPU.Memory, 0h
-			inc ebx
-			loop loop1
-		}*/
-
-		for(int i=0x050;i<0x0A0;i++){
+		for(int i=0x050;i<0x0A0;i++)
+		{
 			Memory[i]=chip8_fontset[i-0x050];
 		}
 
@@ -94,17 +88,20 @@ private:
 	// Loads ROM object into memory and sets program counter at start of ROM.
 	// @param: data-> Selected ROM object, must have ROM data loaded into it
 	void loadROM(ROM &data){
-		for(int i=0x200; i<memSize;i++){
+		for(int i=0x200; i<memSize;i++)
+		{
 			Memory[i]=0x00;
 		}
-		for(int i=0x200;i<data.getData().size()+0x200;i++){
+		for(int i=0x200;i<data.getData().size()+0x200;i++)
+		{
 			Memory[i]=data.getData()[i-0x200];
 		}
 		programCounter=0x200;
 	}
 
 	// Clears the Screen array, does not redraw screen.
-	void clearScreen(){
+	void clearScreen()
+	{
 	/*	for(int i=0;i<64;i++){
 			for(int j=0;j<32;j++){
 				screen[i][j]=false;
@@ -122,14 +119,16 @@ private:
 
 	// Sets the VCPU states back to initial values and loads new ROM into memory.
 	// @param: data-> Selected ROM object, must have ROM data loaded into it
-	void initNewRom(ROM &data){
+	void initNewRom(ROM &data)
+	{
 		drawFlag=false;
 		clearKeyStates();
 		clearScreen();
 		loadROM(data);
 		delayTimer=0;
 		soundTimer=0;
-		for(int i=0;i<16;i++){
+		for(int i=0;i<16;i++)
+		{
 			V[i]=0x0;
 		}
 		cstack->clear();
@@ -139,16 +138,19 @@ private:
 	// Exucutes single opcode, updating virtual machine hardware.
 	// @param: instruction-> Opcode object, loaded from memory
 	// **Read CHIP-8 specifications for descriptions of opcodes**
-	void exucuteOpcode(Opcode &instruction){
+	void exucuteOpcode(Opcode &instruction)
+	{
 		switch(instruction[0]){
 		case(0x0):
 			//note: the 0NNN opcode is treated as depreciated
-			if(instruction.getCode()==0x00E0){
+			if(instruction.getCode()==0x00E0)
+			{
 				//opcode 00E0: Clears the screen.
 				drawFlag=true;
 				clearScreen();
 			}
-			else if(instruction.getCode()==0x00EE){
+			else if(instruction.getCode()==0x00EE)
+			{
 				//opcode 00EE: Returns from a subroutine.
 				programCounter = cstack->top();
 				cstack->pop();
@@ -160,7 +162,8 @@ private:
 			//programCounter-=2;//counteract the default advavce in exucuteOpcode()
 			{
 				unsigned short constant = instruction.get12BitConstant();
-				__asm{
+				__asm
+				{
 					mov ecx, this
 						mov dx, constant
 						sub dx, 2
@@ -173,21 +176,24 @@ private:
 			cstack->push(programCounter);
 			//programCounter=( instruction.get12BitConstant() );
 			//programCounter-=2;//counteract the default advavce in exucuteOpcode()
-		{
-					 unsigned short constant = instruction.get12BitConstant();
-					 __asm{
-						 mov ecx, this
-							 mov dx, constant
-							 sub dx, 2
-							 mov[ecx]VCPU.programCounter, dx
-					 }
-		}
+			{
+				unsigned short constant = instruction.get12BitConstant();
+				__asm
+				{
+					mov ecx, this
+					mov dx, constant
+					sub dx, 2
+					mov[ecx]VCPU.programCounter, dx
+				}
+			}
 			break;
 		case(0x3):
 			//opcode 3XNN: Skips the next instruction if VX equals NN.
-			if(V[instruction[1]]==instruction.get8BitConstant()){
+			if(V[instruction[1]]==instruction.get8BitConstant())
+			{
 				/*programCounter+=2;*/
-				__asm{
+				__asm
+				{
 					mov ecx, this
 					mov dx, [ecx]VCPU.programCounter
 					add dx, 2
@@ -197,7 +203,8 @@ private:
 			break;
 		case(0x4):
 			//opcode 4XNN: Skips the next instruction if VX doesn't equal NN.
-			if(V[instruction[1]]!=instruction.get8BitConstant()){
+			if(V[instruction[1]]!=instruction.get8BitConstant())
+			{
 				/*programCounter+=2;*/
 				__asm{
 					mov ecx, this
@@ -210,7 +217,8 @@ private:
 		case(0x5):
 			if(instruction[3]==0x0){
 				//opcode 5XY0: Skips the next instruction if VX equals VY.
-				if(V[instruction[1]]==V[instruction[2]]){
+				if(V[instruction[1]]==V[instruction[2]])
+				{
 					/*programCounter+=2;*/
 					__asm{
 						mov ecx, this
@@ -228,14 +236,10 @@ private:
 		case(0x7):
 			//opcode 7XNN: Adds NN to VX. note:this opcode does not set the carry
 			V[instruction[1]] += instruction.get8BitConstant();
-	      /*unsigned short nnconst = instruction.get8bitconstant();
-			int reg = instruction[1];
-			__asm{
-
-			}*/
 			break;
 		case(0x8):
-			switch(instruction[3]){
+			switch(instruction[3])
+			{
 			case(0x0):
 				//opcode 8XY0: Sets VX to the value of VY.
 				V[instruction[1]]=V[instruction[2]];

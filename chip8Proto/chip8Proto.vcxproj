@@ -81,7 +81,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CallStack.h" />
-    <ClInclude Include="Debugger.h" />
     <ClInclude Include="Opcode.h" />
     <ClInclude Include="ROM.h" />
     <ClInclude Include="VCPU.h" />
