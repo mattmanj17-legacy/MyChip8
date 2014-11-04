@@ -1,15 +1,18 @@
 #ifndef VCPU_H_
 #define VCPU_H_
+
 #include <stdexcept>
 #include <string>
 #include <random>
 #include <time.h>
 #include <thread>
-#include "CallStack.h"
-#include "ROM.h"
-#include "Opcode.h"
 #include <Windows.h>
 #include <mmsystem.h>
+#include <stack>
+#include "ROM.h"
+#include "Opcode.h"
+
+#define MEM_SIZE 0x1000
 
 unsigned char chip8_fontset[80] =
 { 
@@ -30,15 +33,15 @@ unsigned char chip8_fontset[80] =
   0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
   0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
-class VCPU{
+
+class VCPU
+{
 private:
 	unsigned char V[16];
 	
-	unsigned char* Memory;
+	unsigned char Memory[MEM_SIZE];
 	
-	int memSize;
-	
-	CallStack* cstack;
+	std::stack<unsigned short> callStack;
 	
 	bool drawFlag;
 	
@@ -73,7 +76,7 @@ private:
 	// standardized character set, so this is required at initialization.
 	void loadCharacterSet()
 	{
-		for(int i=0; i<memSize;i++)
+		for(int i=0; i<MEM_SIZE;i++)
 		{
 			Memory[i]=0x00;
 		}
@@ -107,7 +110,8 @@ private:
 				screen[i][j]=false;
 			}
 		}*/
-		__asm{
+		__asm
+		{
 			mov ebx, this
 			mov ecx, 2048
 		loop1:
@@ -131,7 +135,10 @@ private:
 		{
 			V[i]=0x0;
 		}
-		cstack->clear();
+		while(callStack.empty() == false)
+		{
+			callStack.pop();
+		}
 	}
 	
 
@@ -140,7 +147,8 @@ private:
 	// **Read CHIP-8 specifications for descriptions of opcodes**
 	void exucuteOpcode(Opcode &instruction)
 	{
-		switch(instruction[0]){
+		switch(instruction[0])
+		{
 		case(0x0):
 			//note: the 0NNN opcode is treated as depreciated
 			if(instruction.getCode()==0x00E0)
@@ -152,8 +160,8 @@ private:
 			else if(instruction.getCode()==0x00EE)
 			{
 				//opcode 00EE: Returns from a subroutine.
-				programCounter = cstack->top();
-				cstack->pop();
+				programCounter = callStack.top();
+				callStack.pop();
 			}
 			break;
 		case(0x1):
@@ -173,7 +181,7 @@ private:
 			break;
 		case(0x2):
 			//opcode 2NNN: Calls subroutine at NNN.
-			cstack->push(programCounter);
+			callStack.push(programCounter);
 			//programCounter=( instruction.get12BitConstant() );
 			//programCounter-=2;//counteract the default advavce in exucuteOpcode()
 			{
@@ -206,7 +214,8 @@ private:
 			if(V[instruction[1]]!=instruction.get8BitConstant())
 			{
 				/*programCounter+=2;*/
-				__asm{
+				__asm
+				{
 					mov ecx, this
 					mov dx, [ecx]VCPU.programCounter
 					add dx, 2
@@ -220,7 +229,8 @@ private:
 				if(V[instruction[1]]==V[instruction[2]])
 				{
 					/*programCounter+=2;*/
-					__asm{
+					__asm
+					{
 						mov ecx, this
 						mov dx, [ecx]VCPU.programCounter
 						add dx, 2
@@ -266,12 +276,10 @@ private:
 				break;
 			case(0x5):
 				//opcode 8XY5: VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-				if(V[instruction[2]]>V[instruction[1]]){
-					V[0xF]=0x0;//borrow
-				}
-				else{
+				if(V[instruction[2]]>V[instruction[1]])
+					V[0xF]=0x0; //borrow
+				else
 					V[0xF]=0x1;
-				}
 				V[instruction[1]]=V[instruction[1]]-V[instruction[2]];
 				break;
 			case(0x6):
@@ -297,9 +305,11 @@ private:
 			}
 			break;
 		case(0x9):
-			if(instruction[3]==0x0){
+			if(instruction[3]==0x0)
+			{
 				//opcode 9XY0: Skips the next instruction if VX doesn't equal VY.
-				if(V[instruction[1]]!=V[instruction[2]]){
+				if(V[instruction[1]]!=V[instruction[2]])
+				{
 					programCounter+=2;
 				}
 			}
@@ -324,9 +334,12 @@ private:
 			//Sprite pixels that are set flip the color of the corresponding screen pixel, while unset sprite pixels do nothing.
 			//VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that doesn't happen.
 			V[0xF] = 0;
-			for (int yline = 0; yline < instruction[3]; yline++){
-				for(int xline = 0; xline < 8; xline++){
-					if((Memory[indexRegister + yline] & (0x80 >> xline)) != 0){
+			for (int yline = 0; yline < instruction[3]; yline++)
+			{
+				for(int xline = 0; xline < 8; xline++)
+				{
+					if((Memory[indexRegister + yline] & (0x80 >> xline)) != 0)
+					{
 						if(screen[V[instruction[1]] + xline][V[instruction[2]] + yline] == true)
 							V[0xF] = 1; 				
 						screen[V[instruction[1]] + xline][V[instruction[2]] + yline] = !screen[V[instruction[1]] + xline][V[instruction[2]] + yline];
@@ -334,9 +347,6 @@ private:
 				}
 			}			
 			drawFlag = true;
-
-
-
 			break;
 		case(0xe):
 			if(instruction[2]==0x9 && instruction[3]==0xE){
@@ -519,9 +529,6 @@ public:
 	// @param: data-> Selected ROM object, must have ROM data loaded into it
 	VCPU(int stackSize, ROM &data){
 		std::srand(time(NULL));
-		Memory=new unsigned char[0x1000];
-		memSize=0x1000;
-		cstack=new CallStack(stackSize);
 		loadCharacterSet();
 		initNewRom(data);
 	}
