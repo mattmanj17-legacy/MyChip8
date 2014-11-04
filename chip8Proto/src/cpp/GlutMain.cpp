@@ -14,37 +14,36 @@ const char* romName= "BRIX.c8";
 int display_width  = SCREEN_WIDTH * PIXLE_SIZE;
 int display_height = SCREEN_HEIGHT * PIXLE_SIZE;
 
-
-VCPU* myChip8;
-
-
-
 void display();
+void setupTexture();
 void reshape_window(GLsizei w, GLsizei h);
 void keyboardUp(unsigned char key, int x, int y);
 void keyboardDown(unsigned char key, int x, int y);
 
 typedef unsigned __int8 u8;
 u8 screenData[SCREEN_HEIGHT][SCREEN_WIDTH][3]; 
-void setupTexture();
+VCPU* myChip8;
 
-const int delayMil = 3;
-const int timerDelay = 16;
-bool draw=false;
-bool cycleCap = true;
+// vm settings
+#define clockTickMil 3
+#define delayTimerMil 16
+bool cycleDelayElapsed=false;
 
-void delay(int value){
-	draw=true;
-	glutTimerFunc(delayMil,delay,0);
+void clockTick(int value)
+{
+	myChip8->runCycle();
+	glutTimerFunc(clockTickMil,clockTick,0);
 }
 
-void pingTimers(int value){
+void updateTimers(int value)
+{
 	bool sound = myChip8->updateCounters();
-	if(sound){
+	if(sound)
+	{
 		PlaySound(TEXT("Blip_Select219.wav"), NULL, SND_FILENAME | SND_ASYNC);
 		std::cout<<"beep"<<std::endl;
 	}
-	glutTimerFunc(timerDelay,pingTimers,0);
+	glutTimerFunc(delayTimerMil,updateTimers,0);
 }
 
 int main(int argc, char **argv){
@@ -61,8 +60,8 @@ int main(int argc, char **argv){
     glutReshapeFunc(reshape_window);        
 	glutKeyboardFunc(keyboardDown);
 	glutKeyboardUpFunc(keyboardUp);
-	glutTimerFunc(delayMil,delay,0);
-	glutTimerFunc(timerDelay,pingTimers,0);
+	glutTimerFunc(clockTickMil,clockTick,0);
+	glutTimerFunc(delayTimerMil,updateTimers,0);
 	setupTexture();			
 	glutMainLoop(); 
 	return 0;
@@ -102,20 +101,13 @@ void updateTexture(VCPU* c8){
 	glEnd();
 }
 
-void display(){
-	if(draw || !cycleCap){
-		myChip8->runCycle();
-		draw = false;
-	}
+void display()
+{
 	if(myChip8->getDrawFlag())
 	{
-		// Clear framebuffer
 		glClear(GL_COLOR_BUFFER_BIT);
 		updateTexture(myChip8);
-			
-		// Swap buffers!
 		glutSwapBuffers();    
-		// Processed frame
 		myChip8->setDrawFlag(false);
 	}
 }
