@@ -9,23 +9,25 @@ const char* romName= "BRIX.c8";
 // Display size
 #define SCREEN_WIDTH 64
 #define SCREEN_HEIGHT 32
+// Window size
+#define PIXLE_SIZE 10
+int display_width  = SCREEN_WIDTH * PIXLE_SIZE;
+int display_height = SCREEN_HEIGHT * PIXLE_SIZE;
+
 
 VCPU* myChip8;
-int modifier = 10;
 
-// Window size
-int display_width = SCREEN_WIDTH * modifier;
-int display_height = SCREEN_HEIGHT * modifier;
+
+
 void display();
 void reshape_window(GLsizei w, GLsizei h);
 void keyboardUp(unsigned char key, int x, int y);
 void keyboardDown(unsigned char key, int x, int y);
 
-// Use new drawing method
-#define DRAWWITHTEXTURE
 typedef unsigned __int8 u8;
 u8 screenData[SCREEN_HEIGHT][SCREEN_WIDTH][3]; 
 void setupTexture();
+
 const int delayMil = 3;
 const int timerDelay = 16;
 bool draw=false;
@@ -61,9 +63,7 @@ int main(int argc, char **argv){
 	glutKeyboardUpFunc(keyboardUp);
 	glutTimerFunc(delayMil,delay,0);
 	glutTimerFunc(timerDelay,pingTimers,0);
-#ifdef DRAWWITHTEXTURE
 	setupTexture();			
-#endif	
 	glutMainLoop(); 
 	return 0;
 }
@@ -102,29 +102,6 @@ void updateTexture(VCPU* c8){
 	glEnd();
 }
 
-// Old gfx code
-void drawPixel(int x, int y)
-{
-	glBegin(GL_QUADS);
-		glVertex3f((x * modifier) + 0.0f,     (y * modifier) + 0.0f,	 0.0f);
-		glVertex3f((x * modifier) + 0.0f,     (y * modifier) + modifier, 0.0f);
-		glVertex3f((x * modifier) + modifier, (y * modifier) + modifier, 0.0f);
-		glVertex3f((x * modifier) + modifier, (y * modifier) + 0.0f,	 0.0f);
-	glEnd();
-}
-
-void updateQuads(VCPU* c8)
-{
-// Draw
-	for(int y = 0; y < 32; ++y)		
-		for(int x = 0; x < 64; ++x){
-			if(c8->getScreen(x,y) == 0) 
-				glColor3f(0.0f,0.0f,0.0f);			
-			else 
-				glColor3f(1.0f,1.0f,1.0f);
-			drawPixel(x, y);
-		}
-}
 void display(){
 	if(draw || !cycleCap){
 		myChip8->runCycle();
@@ -134,11 +111,8 @@ void display(){
 	{
 		// Clear framebuffer
 		glClear(GL_COLOR_BUFFER_BIT);
-#ifdef DRAWWITHTEXTURE
 		updateTexture(myChip8);
-#else
-		updateQuads(myChip8);		
-#endif			
+			
 		// Swap buffers!
 		glutSwapBuffers();    
 		// Processed frame
