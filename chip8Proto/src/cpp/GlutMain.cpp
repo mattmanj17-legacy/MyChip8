@@ -27,7 +27,6 @@ VCPU* myChip8;
 // vm settings
 #define clockTickMil 3
 #define delayTimerMil 16
-bool cycleDelayElapsed=false;
 
 void clockTick(int value)
 {
@@ -37,18 +36,17 @@ void clockTick(int value)
 
 void updateTimers(int value)
 {
-	bool sound = myChip8->updateCounters();
-	if(sound)
-	{
-		PlaySound(TEXT("Blip_Select219.wav"), NULL, SND_FILENAME | SND_ASYNC);
-		std::cout<<"beep"<<std::endl;
-	}
+	myChip8->updateCounters();
 	glutTimerFunc(delayTimerMil,updateTimers,0);
 }
 
 int main(int argc, char **argv){
 	ROM myrom(romName);
-	myChip8 = new VCPU(16,myrom);	
+	myChip8 = new VCPU(16,myrom);
+	myChip8->setPlaySoundCallback([]()
+	{
+		PlaySound(TEXT("Blip_Select219.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	});
 	// Setup OpenGL
 	glutInit(&argc, argv);          
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);

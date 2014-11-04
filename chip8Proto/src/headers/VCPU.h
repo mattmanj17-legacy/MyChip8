@@ -8,6 +8,7 @@
 #include <thread>
 #include <Windows.h>
 #include <mmsystem.h>
+#include <functional>
 #include <stack>
 #include "ROM.h"
 #include "Opcode.h"
@@ -37,6 +38,8 @@ unsigned char chip8_fontset[80] =
 class VCPU
 {
 private:
+	std::function<void(void)> playSoundFunc;
+
 	unsigned char V[16];
 	
 	unsigned char* Memory;
@@ -512,18 +515,17 @@ private:
 
 public:
 	
-	bool updateCounters(){
+	void updateCounters(){
 		bool ret = false;
 		if(soundTimer > 0){
 			if(soundTimer == 1){
-				ret = true;
+				playSoundFunc();
 			}
 			soundTimer--;
 		}
 		if(delayTimer > 0){
 			delayTimer--;
 		}
-		return ret;
 	}
 	// VCPU constructor, initializes things
 	// @param: stackSize-> Size of callstack to be used by the VCPU, not sure
@@ -535,6 +537,11 @@ public:
 		Memory = new unsigned char[MEM_SIZE];
 		loadCharacterSet();
 		initNewRom(data);
+	}
+
+	void setPlaySoundCallback(std::function<void(void)> callback)
+	{
+		playSoundFunc = callback;
 	}
 
 	
