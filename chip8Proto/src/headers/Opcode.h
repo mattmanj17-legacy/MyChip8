@@ -22,13 +22,22 @@ public:
 	// second-> the least significant Byte
 	Opcode(byte first, byte second)
 	{
-		word firstAsShort = (word)first;
+		/*word firstAsShort = (word)first;
 		word secondAsShort = (word)second;
 
 		firstAsShort <<= 8;
 		firstAsShort |= secondAsShort;
 
-		code = firstAsShort;
+		code = firstAsShort;*/
+
+		__asm
+		{
+			mov al, first
+			shl ax, 8
+			mov al, second
+			mov ecx, this
+			mov [ecx]Opcode.code, ax
+		}
 	}
 
 	// get nibble of opcode by index

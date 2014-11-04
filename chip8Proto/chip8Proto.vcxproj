@@ -116,9 +116,6 @@ XCOPY "$(ProjectDir)"\assets\roms\*.c8 "$(TargetDir)" /D /K /Y</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\cpp\GlutMain.cpp" />
-    <ClCompile Include="src\cpp\Opcode.cpp" />
-    <ClCompile Include="src\cpp\ROM.cpp" />
-    <ClCompile Include="src\cpp\VCPU.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\roms\15PUZZLE.c8" />
