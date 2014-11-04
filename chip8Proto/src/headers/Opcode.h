@@ -1,9 +1,7 @@
 #ifndef OPCODE_H_
 #define OPCODE_H_
-#include <stdexcept>
 #include <string>
 #include <sstream>
-#include <iostream>
 
 typedef unsigned short word;
 typedef unsigned char byte;
@@ -29,7 +27,6 @@ public:
 		firstAsShort |= secondAsShort;
 
 		code = firstAsShort;*/
-
 		__asm
 		{
 			mov al, first
@@ -99,28 +96,31 @@ public:
 		return nibble;
 	}
 
-	// Returns the opcode in one 2-Byte piece
-	word getCode(){
+	word getCode()
+	{
 		return code;
 	}
 
-	// Returns the least significant Byte
+	// if opcode = XXNN , returns NN
 	byte get8BitConstant()
 	{
-		word toreturn;
-		__asm{
+		byte toreturn;
+		__asm
+		{
 			mov ecx, this
 			mov ax, [ecx]Opcode.code
-			and ax, 00FFh
-			mov toreturn, ax
+			and al, 0FFh
+			mov toreturn, al
 		}
-		return (byte)toreturn;
+		return toreturn;
 	}
 
-	// Returns the least significant Byte and a half
-	word get12BitConstant(){
+	// if opcode = XNNN , returns NNN
+	word get12BitConstant()
+	{
 		word toreturn;
-		__asm{
+		__asm
+		{
 			mov ecx, this
 			mov ax, [ecx]Opcode.code
 			and ax, 0FFFh
@@ -129,15 +129,19 @@ public:
 		return toreturn;
 	}
 
-	// Returns the hexidecimal representation of the opcode
-	std::string toString(){
+	// returns opcode in hex
+	std::string toString()
+	{
 		std::stringstream out;
+
 		out << std::hex << (int) this->operator[](0);
 		out << std::hex << (int) this->operator[](1);
 		out << std::hex << (int) this->operator[](2);
 		out << std::hex << (int) this->operator[](3);
+		
 		std::string result;
 		out>>result;
+
 		return result;
 	}
 };
