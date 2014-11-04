@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <glut.h>
-#include "VCPU.h"
 #include <thread>
+#include "VCPU.h"
+
 
 const char* romName= "BRIX.c8";
 
