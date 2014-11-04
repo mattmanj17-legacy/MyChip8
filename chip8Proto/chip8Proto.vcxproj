@@ -42,6 +42,10 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+	<OutDir>$(SolutionDir)\bin\$(ProjectName)$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)\tmp\$(ProjectName)$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)$(Configuration)</TargetName>
+    <ExtensionsToDeleteOnClean>.dll;.c8;.wav;$(ExtensionsToDeleteOnClean)</ExtensionsToDeleteOnClean>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -57,11 +61,22 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+	  <AdditionalIncludeDirectories>$(ProjectDir)\src\headers;$(SolutionDir)\glut;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+	  <AdditionalLibraryDirectories>$(SolutionDir)\glut;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>glut32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+	<PostBuildEvent>
+      <Command>XCOPY "$(SolutionDir)"\glut\*.DLL "$(TargetDir)" /D /K /Y
+XCOPY "$(ProjectDir)"\assets\* "$(TargetDir)" /D /K /Y
+XCOPY "$(ProjectDir)"\assets\roms\*.c8 "$(TargetDir)" /D /K /Y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>copy glut32.dll to build directory</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
