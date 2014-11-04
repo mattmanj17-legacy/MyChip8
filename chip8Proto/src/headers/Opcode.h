@@ -6,35 +6,40 @@
 #include <iostream>
 class Opcode{
 private:
-
-	unsigned short code; // The individual 2-Byte opcode
-
+	unsigned short code;
 public:
-
-	// Opcode constructor 
-	// @param: input-> the 2-Byte value of the opcode
-	Opcode(unsigned short input){
+	Opcode(unsigned short input)
+	{
 		code=input;
 	}
 
-	// Opcode constructor
-	// @param: first-> the most significant Byte of the opcode
-	// @param: second-> the least significant Byte of the opcode
-	Opcode(unsigned char first, unsigned char second){
-		unsigned short firstAsShort=(unsigned short)(first);
-		unsigned short secondAsShort=(unsigned short)(second);
-		firstAsShort<<=8;
-		firstAsShort|=secondAsShort;
-		code=firstAsShort;
+	// first-> the most significant Byte
+	// second-> the least significant Byte
+	Opcode(unsigned char first, unsigned char second)
+	{
+		unsigned short firstAsShort = (unsigned short)first;
+		unsigned short secondAsShort = (unsigned short)second;
+
+		firstAsShort <<= 8;
+		firstAsShort |= secondAsShort;
+
+		code = firstAsShort;
 	}
 
-	// [] operator
-	// @param: index-> index of the nible to return from the opcode
-	//                 0 -> most significant nible : 3 -> least significant nible
-	unsigned char operator[](int index){
-		unsigned short codeafterAnd=code & ( ( 0xf << ( 4*(3-index) ) ) );
-		unsigned char codeAfterShift= (unsigned char) ( ( codeafterAnd >> (4*(3-index) ) ) );
-		return codeAfterShift;
+	// get nibble of opcode by index
+	// 0 -> most significant nibble : 3 -> least significant nible
+	unsigned char operator[](int index)
+	{
+		unsigned short nibble = code;
+
+		int bits = 4*(3-index);
+		unsigned short indexNibble = 0xf << bits;
+		
+		nibble &= indexNibble;
+
+		//convert to char
+		nibble >>= bits;
+		return (unsigned char)nibble;
 	}
 
 	// Returns the opcode in one 2-Byte piece

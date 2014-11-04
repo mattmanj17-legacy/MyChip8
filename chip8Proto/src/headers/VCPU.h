@@ -39,7 +39,7 @@ class VCPU
 private:
 	unsigned char V[16];
 	
-	unsigned char Memory[MEM_SIZE];
+	unsigned char* Memory;
 	
 	std::stack<unsigned short> callStack;
 	
@@ -91,7 +91,7 @@ private:
 	// Loads ROM object into memory and sets program counter at start of ROM.
 	// @param: data-> Selected ROM object, must have ROM data loaded into it
 	void loadROM(ROM &data){
-		for(int i=0x200; i<memSize;i++)
+		for(int i=0x200; i<MEM_SIZE;i++)
 		{
 			Memory[i]=0x00;
 		}
@@ -505,7 +505,10 @@ private:
 	// can be called from in here....
 	VCPU(){}
 
-	
+	~VCPU()
+	{
+		delete[] Memory;
+	}
 
 public:
 	
@@ -529,9 +532,12 @@ public:
 	// @param: data-> Selected ROM object, must have ROM data loaded into it
 	VCPU(int stackSize, ROM &data){
 		std::srand(time(NULL));
+		Memory = new unsigned char[MEM_SIZE];
 		loadCharacterSet();
 		initNewRom(data);
 	}
+
+	
 
 	// Returns a pointer to the VCPU's memory array.
 	unsigned char* memDump(){
