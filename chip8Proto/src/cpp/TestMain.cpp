@@ -3,7 +3,7 @@
 #include "VCPU.h"
 #include <thread>
 
-const char* romName= "BRIX";
+const char* romName= "BRIX.c8";
 
 // Display size
 #define SCREEN_WIDTH 64
