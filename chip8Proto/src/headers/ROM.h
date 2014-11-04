@@ -8,15 +8,17 @@ class ROM
 {
 private:
 	std::vector<unsigned char> data;
+	std::fstream source;
 public:
 	ROM(std::string filename)
 	{
-		std::fstream source;
 		source.open(filename, std::ios_base::in | std::ios::binary);
 		
 		char currentChar;
 		while(source.get(currentChar))
 			data.push_back(currentChar);
+
+		source.close();
 	}
 
 	const std::vector<unsigned char> &getData()
