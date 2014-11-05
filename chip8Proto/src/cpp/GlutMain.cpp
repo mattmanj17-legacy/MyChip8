@@ -13,7 +13,6 @@
 
 void runCycle(int value);
 void updateTimers(int value);
-void display();
 void setupGLUT(int argc, char **argv);
 void setGLUTCallbacks();
 void setupTexture();
@@ -25,7 +24,7 @@ void keyboardDown(unsigned char key, int x, int y);
 int display_width  = SCREEN_WIDTH * PIXLE_SIZE;
 int display_height = SCREEN_HEIGHT * PIXLE_SIZE;
 
-byte screenData[SCREEN_HEIGHT][SCREEN_WIDTH][3]; 
+__int8 screenData[SCREEN_HEIGHT][SCREEN_WIDTH][3]; 
 VCPU* myChip8;
 
 // change this char* to load a new ROM
@@ -34,11 +33,16 @@ const char* romName= "BRIX.c8";
 int main(int argc, char **argv)
 {
 	ROM myrom(romName);
-	myChip8 = new VCPU(16,myrom);
+	myChip8 = new VCPU(myrom);
 
 	myChip8->setPlaySoundCallback([]()
 	{
 		PlaySound(TEXT("Blip_Select219.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	});
+
+	myChip8->setDrawScreenCallback([]()
+	{
+		updateTexture(myChip8);
 	});
 
 	setupGLUT(argc, argv);
@@ -60,17 +64,8 @@ void runCycle(int value)
 
 void updateTimers(int value)
 {
-	myChip8->updateCounters();
+	myChip8->updateTimers();
 	glutTimerFunc(TIMER_DELAY,updateTimers,0);
-}
-
-void display()
-{
-	if(myChip8->getDrawFlag())
-	{
-		updateTexture(myChip8);
-		myChip8->setDrawFlag(false);
-	}
 }
 
 void setupGLUT(int argc, char **argv)
@@ -84,8 +79,8 @@ void setupGLUT(int argc, char **argv)
 
 void setGLUTCallbacks()
 {
-	glutDisplayFunc(display);
-	glutIdleFunc(display);
+	glutDisplayFunc([](){});
+	glutIdleFunc([](){});
     glutReshapeFunc(reshape_window);        
 	glutKeyboardFunc(keyboardDown);
 	glutKeyboardUpFunc(keyboardUp);

@@ -15,7 +15,10 @@
 
 #define MEM_SIZE 0x1000
 
-unsigned char chip8_fontset[80] =
+typedef unsigned short word;
+typedef unsigned char byte;
+
+byte chip8_fontset[80] =
 { 
   0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
   0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -38,27 +41,19 @@ unsigned char chip8_fontset[80] =
 class VCPU
 {
 private:
-	std::function<void(void)> playSoundFunc;
+	byte V[16];
+	byte* Memory;
+	word indexRegister;
+	word programCounter;
+	std::stack<word> callStack;
 
-	unsigned char V[16];
-	
-	unsigned char* Memory;
-	
-	std::stack<unsigned short> callStack;
-	
-	bool drawFlag;
-	
 	bool screen[64][32];
+	std::function<void(void)> drawScreenFunc;
 	
 	int delayTimer;
-	
 	int soundTimer;
+	std::function<void(void)> playSoundFunc;
 	
-	unsigned short indexRegister;
-	
-	unsigned short programCounter;
-
-	// Empties the key states register.
 	void clearKeyStates()
 	{
 		/*for(int i=0;i<16;i++){
@@ -75,34 +70,12 @@ private:
 		}
 	}
 
-	// Loads starting character set into memory, some ROMs use this 
+	// Load chip8 character set into memory. some ROMs use this 
 	// standardized character set, so this is required at initialization.
 	void loadCharacterSet()
 	{
-		for(int i=0; i<MEM_SIZE;i++)
-		{
-			Memory[i]=0x00;
-		}
-
 		for(int i=0x050;i<0x0A0;i++)
-		{
 			Memory[i]=chip8_fontset[i-0x050];
-		}
-
-	}
-
-	// Loads ROM object into memory and sets program counter at start of ROM.
-	// @param: data-> Selected ROM object, must have ROM data loaded into it
-	void loadROM(ROM &data){
-		for(int i=0x200; i<MEM_SIZE;i++)
-		{
-			Memory[i]=0x00;
-		}
-		for(int i=0x200;i<data.getData().size()+0x200;i++)
-		{
-			Memory[i]=data.getData()[i-0x200];
-		}
-		programCounter=0x200;
 	}
 
 	// Clears the Screen array, does not redraw screen.
@@ -125,25 +98,27 @@ private:
 	}
 
 	// Sets the VCPU states back to initial values and loads new ROM into memory.
-	// @param: data-> Selected ROM object, must have ROM data loaded into it
+	// sets program counter to begining of program memory space
 	void initNewRom(ROM &data)
 	{
-		drawFlag=false;
 		clearKeyStates();
 		clearScreen();
-		loadROM(data);
-		delayTimer=0;
-		soundTimer=0;
-		for(int i=0;i<16;i++)
-		{
-			V[i]=0x0;
-		}
+
+		delayTimer = 0;
+		soundTimer = 0;
+
+		for(int i = 0; i < 16; i++)
+			V[i] = 0x0;
 		while(callStack.empty() == false)
-		{
 			callStack.pop();
-		}
+		
+		for(int i = 0x200; i < MEM_SIZE; i++)
+			Memory[i]=0x00;
+		for(int i = 0x200; i < data.getData().size() + 0x200; i++)
+			Memory[i]=data.getData()[i - 0x200];
+
+		programCounter=0x200;
 	}
-	
 
 	// Exucutes single opcode, updating virtual machine hardware.
 	// @param: instruction-> Opcode object, loaded from memory
@@ -154,13 +129,13 @@ private:
 		{
 		case(0x0):
 			//note: the 0NNN opcode is treated as depreciated
-			if(instruction.getCode()==0x00E0)
+			if(instruction.getCode() == 0x00E0)
 			{
 				//opcode 00E0: Clears the screen.
-				drawFlag=true;
 				clearScreen();
+				drawScreenFunc();
 			}
-			else if(instruction.getCode()==0x00EE)
+			else if(instruction.getCode() == 0x00EE)
 			{
 				//opcode 00EE: Returns from a subroutine.
 				programCounter = callStack.top();
@@ -172,13 +147,13 @@ private:
 			//programCounter=( instruction.get12BitConstant() );
 			//programCounter-=2;//counteract the default advavce in exucuteOpcode()
 			{
-				unsigned short constant = instruction.get12BitConstant();
+				word constant = instruction.get12BitConstant();
 				__asm
 				{
 					mov ecx, this
-						mov dx, constant
-						sub dx, 2
-						mov[ecx]VCPU.programCounter, dx
+					mov dx, constant
+					sub dx, 2
+					mov[ecx]VCPU.programCounter, dx
 				}
 			}
 			break;
@@ -188,7 +163,7 @@ private:
 			//programCounter=( instruction.get12BitConstant() );
 			//programCounter-=2;//counteract the default advavce in exucuteOpcode()
 			{
-				unsigned short constant = instruction.get12BitConstant();
+				word constant = instruction.get12BitConstant();
 				__asm
 				{
 					mov ecx, this
@@ -200,7 +175,7 @@ private:
 			break;
 		case(0x3):
 			//opcode 3XNN: Skips the next instruction if VX equals NN.
-			if(V[instruction[1]]==instruction.get8BitConstant())
+			if(V[instruction[1]] == instruction.get8BitConstant())
 			{
 				/*programCounter+=2;*/
 				__asm
@@ -214,7 +189,7 @@ private:
 			break;
 		case(0x4):
 			//opcode 4XNN: Skips the next instruction if VX doesn't equal NN.
-			if(V[instruction[1]]!=instruction.get8BitConstant())
+			if(V[instruction[1]] != instruction.get8BitConstant())
 			{
 				/*programCounter+=2;*/
 				__asm
@@ -244,7 +219,7 @@ private:
 			break;
 		case(0x6):
 			//opcode 6XNN: Sets VX to NN.
-			V[instruction[1]]=instruction.get8BitConstant();
+			V[instruction[1]] = instruction.get8BitConstant();
 			break;
 		case(0x7):
 			//opcode 7XNN: Adds NN to VX. note:this opcode does not set the carry
@@ -255,7 +230,7 @@ private:
 			{
 			case(0x0):
 				//opcode 8XY0: Sets VX to the value of VY.
-				V[instruction[1]]=V[instruction[2]];
+				V[instruction[1]] = V[instruction[2]];
 				break;
 			case(0x1):
 				//opcode 8XY1: Sets VX to VX or VY.
@@ -279,39 +254,39 @@ private:
 				break;
 			case(0x5):
 				//opcode 8XY5: VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-				if(V[instruction[2]]>V[instruction[1]])
-					V[0xF]=0x0; //borrow
+				if(V[instruction[2]] > V[instruction[1]])
+					V[0xF] = 0x0; //borrow
 				else
-					V[0xF]=0x1;
-				V[instruction[1]]=V[instruction[1]]-V[instruction[2]];
+					V[0xF] = 0x1;
+				V[instruction[1]] = V[instruction[1]] - V[instruction[2]];
 				break;
 			case(0x6):
 				//opcode 8XY6: Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.
 				//On the original interpreter, the value of VY is shifted, and the result is stored into VX. On current implementations, Y is ignored.
-				V[0xF]=(V[instruction[1]] & 0x1);
-				V[instruction[1]]>>=1;
+				V[0xF] = (V[instruction[1]] & 0x1);
+				V[instruction[1]] >>= 1;
 				break;
 			case(0x7):
 				//opcode 8XY7: Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-				if(V[instruction[2]]<V[instruction[1]])
-					V[0xF]=0x0;//borrow
+				if(V[instruction[2]] < V[instruction[1]])
+					V[0xF] = 0x0;//borrow
 				else
-					V[0xF]=0x1;
-				V[instruction[1]]=V[instruction[2]]-V[instruction[1]];
+					V[0xF] = 0x1;
+				V[instruction[1]] = V[instruction[2]] - V[instruction[1]];
 				break;
 			case(0xE):
 				//opcode 8XYE: Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
 				//On the original interpreter, the value of VY is shifted, and the result is stored into VX. On current implementations, Y is ignored.
-				V[0xF]=(V[instruction[1]] >> 7 );
-				V[instruction[1]]<<=1;
+				V[0xF] = (V[instruction[1]] >> 7 );
+				V[instruction[1]] <<= 1;
 				break;
 			}
 			break;
 		case(0x9):
-			if(instruction[3]==0x0)
+			if(instruction[3] == 0x0)
 			{
 				//opcode 9XY0: Skips the next instruction if VX doesn't equal VY.
-				if(V[instruction[1]]!=V[instruction[2]])
+				if(V[instruction[1]] != V[instruction[2]])
 				{
 					programCounter+=2;
 				}
@@ -319,12 +294,12 @@ private:
 			break;
 		case(0xa):
 			//opcode ANNN: Sets I to the address NNN.
-			indexRegister=instruction.get12BitConstant();
+			indexRegister = instruction.get12BitConstant();
 			break;
 		case(0xb):
 			//opcode BNNN: Jumps to the address NNN plus V0.
-			programCounter=V[0]+instruction.get8BitConstant();
-			programCounter-=2;//couteract the default increment in exucuteOpcode()
+			programCounter = V[0]+instruction.get8BitConstant();
+			programCounter -= 2;//couteract the default increment in exucuteOpcode()
 			break;
 		case(0xc):
 			//opcode CXNN: Sets VX to a random number and NN.
@@ -344,35 +319,42 @@ private:
 					if((Memory[indexRegister + yline] & (0x80 >> xline)) != 0)
 					{
 						if(screen[V[instruction[1]] + xline][V[instruction[2]] + yline] == true)
-							V[0xF] = 1; 				
+							V[0xF] = 1; 
+
 						screen[V[instruction[1]] + xline][V[instruction[2]] + yline] = !screen[V[instruction[1]] + xline][V[instruction[2]] + yline];
 					}
 				}
 			}			
-			drawFlag = true;
+			drawScreenFunc();
 			break;
 		case(0xe):
-			if(instruction[2]==0x9 && instruction[3]==0xE){
+			if(instruction[2] == 0x9 && instruction[3] == 0xE)
+			{
 				//opcode EX9E: Skips the next instruction if the key stored in VX is pressed.
-				if(keyStates[V[instruction[1]]]==true){
-					programCounter+=2;
+				if(keyStates[V[instruction[1]]] == true)
+				{
+					programCounter += 2;
 				}
 			}
-			else if(instruction[2]==0xa && instruction[3]==0x1){
+			else if(instruction[2] == 0xa && instruction[3] == 0x1)
+			{
 				//opcode EXA1: Skips the next instruction if the key stored in VX isn't pressed.
-				if(keyStates[V[instruction[1]]]==false){
-					programCounter+=2;
+				if(keyStates[V[instruction[1]]] == false)
+				{
+					programCounter += 2;
 				}
 			}
 			break;
 		case(0xf):
-			if(instruction[2]==0x0 && instruction[3]==0x7){
+			if(instruction[2] == 0x0 && instruction[3] == 0x7)
+			{
 				//opcode FX07:Sets VX to the value of the delay timer.
-				V[instruction[1]]=(unsigned char)delayTimer;
+				V[instruction[1]] = (byte)delayTimer;
 			}
-			if(instruction[2]==0x0 && instruction[3]==0xA){
+			if(instruction[2] == 0x0 && instruction[3] == 0xA)
+			{
 				//opcode FX0A:A key press is awaited, and then stored in VX.
-				bool inputFlag=false;
+				//bool inputFlag=false;
 				//for(int i = 0; i<16; i++){
 				//	if(keyStates[i]){
 				//		V[instruction[1]]=(unsigned char)i;
@@ -383,8 +365,9 @@ private:
 				//if(!inputFlag){
 				//	programCounter-=2;//set the program counter to repeat this opcod until input is receved
 				//}
-				unsigned char saved;
-				__asm{
+				byte saved;
+				__asm
+				{
 					mov ecx, 16
 					mov ebx, this
 					mov edx, 0
@@ -408,43 +391,48 @@ private:
 				}
 				V[instruction[1]] = saved;
 			}
-			if(instruction[2]==0x1 && instruction[3]==0x5){
+			if(instruction[2] == 0x1 && instruction[3] == 0x5)
+			{
 				//opcode FX15:Sets the delay timer to VX.
-				delayTimer=V[instruction[1]];
+				delayTimer = V[instruction[1]];
 			}
-			if(instruction[2]==0x1 && instruction[3]==0x8){
+			if(instruction[2] == 0x1 && instruction[3] == 0x8)
+			{
 				//opcode FX18:Sets the sound timer to VX.
-				soundTimer=V[instruction[1]];
+				soundTimer = V[instruction[1]];
 			}
-			if(instruction[2]==0x1 && instruction[3]==0xE){
+			if(instruction[2] == 0x1 && instruction[3] == 0xE)
+			{
 				//opcode FX1E:Adds VX to I.
 				//VF is set to 1 when range overflow (I+VX>0xFFF), and 0 when there isn't. 
 				//This is undocumented feature of the Chip-8, but is implemented for compleatness
-				if( indexRegister+V[instruction[1]] >0xFFF){
+				if(indexRegister + V[instruction[1]] > 0xFFF)
 					V[0xf]=0x1;
-				}
-				else{
+				else
 					V[0xf]=0x0;
-				}
-				indexRegister+=V[instruction[1]];
+
+				indexRegister += V[instruction[1]];
 			}
-			if(instruction[2]==0x2 && instruction[3]==0x9){
+			if(instruction[2] == 0x2 && instruction[3] == 0x9)
+			{
 				//opcode FX29:Sets I to the location of the sprite for the character in VX. 
 				//Characters 0-F (in hexadecimal) are represented by a 4x5 font.
-				indexRegister=  (5 * V[instruction[1]]) + 0x050;
+				indexRegister = 5 * V[instruction[1]] + 0x050;
 			}
-			if(instruction[2]==0x3 && instruction[3]==0x3){
+			if(instruction[2] == 0x3 && instruction[3] == 0x3)
+			{
 				//opcode FX33:Stores the Binary-coded decimal representation of VX, 
 				//with the most significant of three digits at the address in I, 
 				//the middle digit at I plus 1, and the least significant digit at I plus 2. 
 				//In other words, take the decimal representation of VX, place the hundreds digit in memory at location in I,
 				//the tens digit at location I+1, and the ones digit at location I+2.
-			/*	Memory[indexRegister]     =  V[(instruction[1])] / 100;
+			 /* Memory[indexRegister]     =  V[(instruction[1])] / 100;
 				Memory[indexRegister + 1] = (V[(instruction[1])] / 10) % 10;
 				Memory[indexRegister + 2] = (V[(instruction[1])] % 100) % 10;*/
 				{
-					unsigned char instruct1 = instruction[1];
-					__asm{
+					byte instruct1 = instruction[1];
+					__asm
+					{
 						mov edi, this
 						movzx ebx, instruct1
 						add edi, ebx
@@ -481,108 +469,78 @@ private:
 					}
 				}
 			}
-			if(instruction[2]==0x5 && instruction[3]==0x5){
+			if(instruction[2]==0x5 && instruction[3]==0x5)
+			{
 				//opcode FX55:Stores V0 to VX in memory starting at address I.
 				//On the original interpreter, when the operation is done, I=I+X+1.
-				for(int i=0;i<=instruction[1];i++){
-					Memory[indexRegister+i]=V[i];
-				}
-				indexRegister+=instruction[1];
+				for(int i = 0; i <= instruction[1]; i++)
+					Memory[indexRegister+i] = V[i];
+
+				indexRegister += instruction[1];
 				indexRegister++;
 			}
-			if(instruction[2]==0x6 && instruction[3]==0x5){
+			if(instruction[2]==0x6 && instruction[3]==0x5)
+			{
 				//opcode FX65:Fills V0 to VX with values from memory starting at address I.
 				//On the original interpreter, when the operation is done, I=I+X+1.
-				for(int i=0;i<=instruction[1];i++){
-					V[i]=Memory[indexRegister+i];
-				}
-				indexRegister+=instruction[1];
+				for(int i = 0; i <= instruction[1]; i++)
+					V[i] = Memory[indexRegister+i];
+
+				indexRegister += instruction[1];
 				indexRegister++;
 			}
 			break;
 		}
 	}
 
-	// Default VCPU constructor, sad and forgotten here at the end of
-	// the private section, never to be called. I'm not even sure it 
-	// can be called from in here....
-	VCPU(){}
-
 	~VCPU()
 	{
 		delete[] Memory;
 	}
-
 public:
-	
-	void updateCounters(){
-		bool ret = false;
-		if(soundTimer > 0){
-			if(soundTimer == 1){
-				playSoundFunc();
-			}
-			soundTimer--;
-		}
-		if(delayTimer > 0){
-			delayTimer--;
-		}
-	}
-	// VCPU constructor, initializes things
-	// @param: stackSize-> Size of callstack to be used by the VCPU, not sure
-	//                      but 16 should probably do, maybe bigger, I'm sure
-	//                      size doesn't matter.
-	// @param: data-> Selected ROM object, must have ROM data loaded into it
-	VCPU(int stackSize, ROM &data){
+	VCPU(ROM &data)
+	{
 		std::srand(time(NULL));
-		Memory = new unsigned char[MEM_SIZE];
+		Memory = new byte[MEM_SIZE];
 		loadCharacterSet();
 		initNewRom(data);
 	}
+
+	bool keyStates[16];
 
 	void setPlaySoundCallback(std::function<void(void)> callback)
 	{
 		playSoundFunc = callback;
 	}
 
-	
-
-	// Returns a pointer to the VCPU's memory array.
-	unsigned char* memDump(){
-		return Memory;
+	void setDrawScreenCallback(std::function<void(void)> callback)
+	{
+		drawScreenFunc = callback;
 	}
 
-	// Executes a single opcode from memory and does timer stuff.
-	void runCycle(){
+	void updateTimers()
+	{
+		if(soundTimer > 0)
+		{
+			if(soundTimer == 1)
+				playSoundFunc();
+
+			soundTimer--;
+		}
+		if(delayTimer > 0)
+			delayTimer--;
+	}
+
+	void runCycle()
+	{
 		Opcode currentInstruction( Memory[programCounter] , Memory[programCounter+1] );
 		exucuteOpcode(currentInstruction);
-		
-		if(delayTimer>0){
-			//delayTimer--;
-		}
-		if(soundTimer>0){
-			//soundTimer--;
-		}
 		programCounter+=2;
 	}
 
-	// Returns the value on a single bit in the screen, on or off.
-	// @param: x-> The X coordinate of the bit to check
-	// @param: y-> The Y coordinate of the bit to check
-	bool getScreen(int x,int y){
+	bool getScreen(int x,int y)
+	{
 		return screen[x][y];
-	}
-
-	// Returns the value of the draw flag.
-	bool getDrawFlag(){
-		return drawFlag;
-	}
-
-	// Sets the value of the draw flag.
-	// @param: flag-> Value to set the draw flag to
-	void setDrawFlag(bool flag){
-		drawFlag=flag;
-	}
-
-	bool keyStates[16]; // An array for the 16 hex keys
+	} 
 };
 #endif
