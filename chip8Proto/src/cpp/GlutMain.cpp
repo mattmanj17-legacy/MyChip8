@@ -4,92 +4,120 @@
 #include <iostream>
 #include "VCPU.h"
 
-const char* romName= "BRIX.c8";
+#define CYCLE_DELAY 3
+#define TIMER_DELAY 16
 
-// Display size
 #define SCREEN_WIDTH 64
 #define SCREEN_HEIGHT 32
-// Window size
 #define PIXLE_SIZE 10
-int display_width  = SCREEN_WIDTH * PIXLE_SIZE;
-int display_height = SCREEN_HEIGHT * PIXLE_SIZE;
 
+void runCycle(int value);
+void updateTimers(int value);
 void display();
+void setupGLUT(int argc, char **argv);
+void setGLUTCallbacks();
 void setupTexture();
+void updateTexture(VCPU* c8);
 void reshape_window(GLsizei w, GLsizei h);
 void keyboardUp(unsigned char key, int x, int y);
 void keyboardDown(unsigned char key, int x, int y);
 
-typedef unsigned __int8 u8;
-u8 screenData[SCREEN_HEIGHT][SCREEN_WIDTH][3]; 
+int display_width  = SCREEN_WIDTH * PIXLE_SIZE;
+int display_height = SCREEN_HEIGHT * PIXLE_SIZE;
+
+byte screenData[SCREEN_HEIGHT][SCREEN_WIDTH][3]; 
 VCPU* myChip8;
 
-// vm settings
-#define clockTickMil 3
-#define delayTimerMil 16
+// change this char* to load a new ROM
+const char* romName= "BRIX.c8";
 
-void clockTick(int value)
+int main(int argc, char **argv)
+{
+	ROM myrom(romName);
+	myChip8 = new VCPU(16,myrom);
+
+	myChip8->setPlaySoundCallback([]()
+	{
+		PlaySound(TEXT("Blip_Select219.wav"), NULL, SND_FILENAME | SND_ASYNC);
+	});
+
+	setupGLUT(argc, argv);
+	setGLUTCallbacks();
+	setupTexture();
+
+	glutTimerFunc(CYCLE_DELAY,runCycle,0);
+	glutTimerFunc(TIMER_DELAY,updateTimers,0);
+
+	glutMainLoop(); 
+	return 0;
+}
+
+void runCycle(int value)
 {
 	myChip8->runCycle();
-	glutTimerFunc(clockTickMil,clockTick,0);
+	glutTimerFunc(CYCLE_DELAY,runCycle,0);
 }
 
 void updateTimers(int value)
 {
 	myChip8->updateCounters();
-	glutTimerFunc(delayTimerMil,updateTimers,0);
+	glutTimerFunc(TIMER_DELAY,updateTimers,0);
 }
 
-int main(int argc, char **argv){
-	ROM myrom(romName);
-	myChip8 = new VCPU(16,myrom);
-	myChip8->setPlaySoundCallback([]()
+void display()
+{
+	if(myChip8->getDrawFlag())
 	{
-		PlaySound(TEXT("Blip_Select219.wav"), NULL, SND_FILENAME | SND_ASYNC);
-	});
-	// Setup OpenGL
+		updateTexture(myChip8);
+		myChip8->setDrawFlag(false);
+	}
+}
+
+void setupGLUT(int argc, char **argv)
+{
 	glutInit(&argc, argv);          
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowSize(display_width, display_height);
     glutInitWindowPosition(320, 320);
 	glutCreateWindow("CS278 Chip8 Emulator");
+}
+
+void setGLUTCallbacks()
+{
 	glutDisplayFunc(display);
 	glutIdleFunc(display);
     glutReshapeFunc(reshape_window);        
 	glutKeyboardFunc(keyboardDown);
 	glutKeyboardUpFunc(keyboardUp);
-	glutTimerFunc(clockTickMil,clockTick,0);
-	glutTimerFunc(delayTimerMil,updateTimers,0);
-	setupTexture();			
-	glutMainLoop(); 
-	return 0;
 }
 
-// Setup Texture
-void setupTexture(){
-	// Clear screen
+void setupTexture()
+{
 	for(int y = 0; y < SCREEN_HEIGHT; ++y)		
 		for(int x = 0; x < SCREEN_WIDTH; ++x)
 			screenData[y][x][0] = screenData[y][x][1] = screenData[y][x][2] = 0;
-	// Create a texture 
+
 	glTexImage2D(GL_TEXTURE_2D, 0, 3, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, (GLvoid*)screenData);
-	// Set up the texture
+	
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP); 
-	// Enable textures
+	
 	glEnable(GL_TEXTURE_2D);
 }
-void updateTexture(VCPU* c8){	
-	// Update pixels
+
+void updateTexture(VCPU* c8)
+{	
+	glClear(GL_COLOR_BUFFER_BIT);
+	
 	for(int y = 0; y < 32; ++y)		
 		for(int x = 0; x < 64; ++x)
 			if(c8->getScreen(x,y) == 0)
 				screenData[y][x][0] = screenData[y][x][1] = screenData[y][x][2] = 0;	// Disabled
 			else 
 				screenData[y][x][0] = screenData[y][x][1] = screenData[y][x][2] = 255;  // Enabled
-	// Update Texture
+	
 	glTexSubImage2D(GL_TEXTURE_2D, 0 ,0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, GL_RGB, GL_UNSIGNED_BYTE, (GLvoid*)screenData);
 	glBegin( GL_QUADS );
 		glTexCoord2d(0.0, 0.0);		glVertex2d(0.0,			  0.0);
@@ -97,32 +125,28 @@ void updateTexture(VCPU* c8){
 		glTexCoord2d(1.0, 1.0); 	glVertex2d(display_width, display_height);
 		glTexCoord2d(0.0, 1.0); 	glVertex2d(0.0,			  display_height);
 	glEnd();
+
+	glutSwapBuffers();
 }
 
-void display()
+void reshape_window(GLsizei w, GLsizei h)
 {
-	if(myChip8->getDrawFlag())
-	{
-		glClear(GL_COLOR_BUFFER_BIT);
-		updateTexture(myChip8);
-		glutSwapBuffers();    
-		myChip8->setDrawFlag(false);
-	}
-}
-void reshape_window(GLsizei w, GLsizei h){
 	glClearColor(0.0f, 0.0f, 0.5f, 0.0f);
 	glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     gluOrtho2D(0, w, h, 0);        
     glMatrixMode(GL_MODELVIEW);
     glViewport(0, 0, w, h);
-	// Resize quad
+	
 	display_width = w;
 	display_height = h;
 }
-void keyboardDown(unsigned char key, int x, int y){
+
+void keyboardDown(unsigned char key, int x, int y)
+{
 	if(key == 27)    // esc
 		exit(0);
+
 	if(key == '1')		myChip8->keyStates[0x1] = true;
 	else if(key == '2')	myChip8->keyStates[0x2] = true;
 	else if(key == '3')	myChip8->keyStates[0x3] = true;
@@ -143,7 +167,9 @@ void keyboardDown(unsigned char key, int x, int y){
 	else if(key == 'c')	myChip8->keyStates[0xB] = true;
 	else if(key == 'v')	myChip8->keyStates[0xF] = true;
 }
-void keyboardUp(unsigned char key, int x, int y){
+
+void keyboardUp(unsigned char key, int x, int y)
+{
 	if(key == '1')		myChip8->keyStates[0x1] = false;
 	else if(key == '2')	myChip8->keyStates[0x2] = false;
 	else if(key == '3')	myChip8->keyStates[0x3] = false;
