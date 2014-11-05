@@ -1,13 +1,8 @@
 #ifndef VCPU_H_
 #define VCPU_H_
 
-#include <stdexcept>
 #include <string>
 #include <random>
-#include <time.h>
-#include <thread>
-#include <Windows.h>
-#include <mmsystem.h>
 #include <functional>
 #include <stack>
 #include "ROM.h"

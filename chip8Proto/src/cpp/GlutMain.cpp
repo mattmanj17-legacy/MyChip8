@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <glut.h>
+#include <Windows.h>
+#include <mmsystem.h>
 #include <thread>
 #include <iostream>
 #include "VCPU.h"
